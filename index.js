@@ -1,62 +1,40 @@
-import CalculatorLexer from "./generated/CalculatorLexer.js";
-import CalculatorParser from "./generated/CalculatorParser.js";
-import { CustomCalculatorListener } from "./CustomCalculatorListener.js";
-import { CustomCalculatorVisitor } from "./CustomCalculatorVisitor.js";
-import antlr4, { CharStreams, CommonTokenStream, ParseTreeWalker } from "antlr4";
-import readline from 'readline';
-import fs from 'fs';
+import antlr4 from "antlr4";
+import fs from "fs";
 
-async function main() {
-    let input;
+import JuegoInterpreter from './JuegoInterpreter.js';
+import MiniJSLexer from "./generated/MiniJSLexer.js";
+import MiniJSParser from "./generated/MiniJSParser.js";
+import MiniJSInterpreter from "./MiniJSInterpreter.js";
 
-    // Intento leer la entrada desde el archivo input - en forma sincrona.
-    try {
-        input = fs.readFileSync('input.txt', 'utf8');
-    } catch (err) {
-        // Si no es posible leer el archivo, solicitar la entrada del usuario por teclado
-        input = await leerCadena(); // Simula lectura síncrona
-        console.log(input);
-    }
+const input = fs.readFileSync("input.js", "utf8");
 
-    // Proceso la entrada con el analizador e imprimo el arbol de analisis en formato texto
-    let inputStream = CharStreams.fromString(input);
-    let lexer = new CalculatorLexer(inputStream);
-    let tokenStream = new CommonTokenStream(lexer);
-    let parser = new CalculatorParser(tokenStream);
-    let tree = parser.prog();
-    
-    // Verifico si se produjeron errores
-    if (parser.syntaxErrorsCount > 0) {
-        console.error("\nSe encontraron errores de sintaxis en la entrada.");
-    } 
-    else {
-        console.log("\nEntrada válida.");
-        const cadena_tree = tree.toStringTree(parser.ruleNames);
-        console.log(`Árbol de derivación: ${cadena_tree}`);
+const chars = new antlr4.InputStream(input);
+const lexer = new MiniJSLexer(chars);
+const tokens = new antlr4.CommonTokenStream(lexer);
 
-        // Utilizo un listener y un walker para recorrer el arbol e indicar cada vez que reconoce una sentencia (stat)
-        //const listener = new CustomCalculatorListener();
-        // ParseTreeWalker.DEFAULT.walk(listener, tree);
+tokens.fill();
 
-        // Utilizo un visitor para visitar los nodos que me interesan de mi arbol
-        const visitor = new CustomCalculatorVisitor();
-        visitor.visit(tree);   
+console.log("TABLA DE TOKENS");
+console.log("----------------");
+
+for (const token of tokens.tokens) {
+    if (token && token.text) {
+        console.log(token.text);
     }
 }
 
-function leerCadena() {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
+tokens.seek(0);
 
-    return new Promise(resolve => {
-        rl.question("Ingrese una cadena: ", (answer) => {
-            rl.close();
-            resolve(answer);
-        });
-    });
-}
+const parser = new MiniJSParser(tokens);
+parser.buildParseTrees = true;
 
-// Ejecuta la función principal
-main();
+const tree = parser.programa();
+
+const interpreter = new JuegoInterpreter();
+
+const jsCode = interpreter.visit(tree);
+
+console.log("\nTRADUCCIÓN A JAVASCRIPT");
+console.log("-----------------------");
+
+console.log(jsCode);
